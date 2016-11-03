@@ -12,6 +12,8 @@ import warnings
 import numpy as np
 import scipy.sparse as sp
 from scipy.linalg import svd
+from scipy.spatial.distance import squareform
+from scipy.optimize import nnls
 
 from .base import BaseEstimator
 from .base import TransformerMixin
@@ -519,3 +521,85 @@ class Nystroem(BaseEstimator, TransformerMixin):
             params['coef0'] = self.coef0
 
         return params
+
+class mkl_gram(BaseEstimator,TransformerMixin):
+    """A transformer that implements BDOPT stuff
+
+    It is expected that if used in a pipeline, downstream steps
+    expect a gram matrix as X rather than the data
+    in feature space.
+
+    params
+
+    kernels: list of functions that are evaluated as kernels"""
+
+    def __init__(self,kernels=''):
+        self.kernels = kernels
+
+    def fit(self,X,y):
+        """Fit estimator to data.
+
+        Learn a linear combination of the kernels
+        previously supplied consistent with
+        BDOPT approach.
+
+        Parameters
+        ----------
+        X:      array-like, shape=(n_samples, n_features)
+                Training data
+
+        y:      array-like, shape=(n_samples)
+                Labels for training data
+        """
+
+
+        Xgram = self._calcGrams(X,self.kernels)
+        Xgram_design = self._resGrams(Xgram)
+        ygram = self._calcY(y,self._identitykernel)
+        ygram_design = self._resY(ygram)
+        self.gammaweights_ = self._bdopt(Xgram_design,ygram_design)
+        return self
+
+    def _calcGrams(self,X,kernels):
+        """Return a list of gram matrices by
+        applying each of the kernels to all pairs
+        of feature vectors"""
+
+        grams = [pairwise_kernels(X,metric=g) for g in kernels]
+        return grams
+
+    def _resGrams(self,grams):
+        """Restructure the list of gram matrices
+        to the form of a design matrix. Extract the
+        upper triangular portion of each gram matrix,
+        convert to a column vector, then bind the columns"""
+        return np.array([squareform(g) for g in grams]).T
+
+    def _identitykernel(self,x1,x2):
+        """A convenience kernel that returns
+        1 if x1==x2,
+        0 else. Intended for use with y"""
+        if x1==x2:
+            return 1
+        else:
+            return 0
+
+    def _nbdopt(self,grams,y):
+        # let's try writing this in pseudocode first, then rewriting. my WM is shot
+        gram_array = self._list2array(grams)
+        gram_X = self._reorgGrams(gram_array)
+        gram_y = self._reorgy(y) # do simple comparisons of y, eval if they are the same
+
+        flatgrams = np.zeros(shape=(len(np.triu_indices_from(grams[:,:,0],1)[0]),grams.shape[2]))
+        for icol in np.arange(0,flatgrams.shape[1]):
+            flatgrams[:,icol]=self._mc_flatten_upper_triangle(grams[:,:,icol])
+        b = np.zeros(shape=(grams.shape[0],grams.shape[0]))
+        it = np.nditer(b,flags=['multi_index'],op_flags=['writeonly'])
+        while not it.finished: # loop over agreement matrix and check
+            it[0] = int(y[it.multi_index[0]]==y[it.multi_index[1]])
+            it.iternext()
+        flatb = self._mc_flatten_upper_triangle(b)
+        regr = linear_model.LinearRegression()
+        regr.fit(flatgrams,flatb)
+        return regr.coef_
+
