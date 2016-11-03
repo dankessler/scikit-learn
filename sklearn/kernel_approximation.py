@@ -555,8 +555,8 @@ class mkl_gram(BaseEstimator,TransformerMixin):
 
         Xgram = self._calcGrams(X,self.kernels)
         Xgram_design = self._resGrams(Xgram)
-        ygram = self._calcY(y,self._identitykernel)
-        ygram_design = self._resY(ygram)
+        ygram = self._calcGrams(y,self._identitykernel)
+        ygram_design = self._resGrams(ygram)
         self.gammaweights_ = self._bdopt(Xgram_design,ygram_design)
         return self
 
