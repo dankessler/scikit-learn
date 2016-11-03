@@ -584,22 +584,6 @@ class mkl_gram(BaseEstimator,TransformerMixin):
         else:
             return 0
 
-    def _nbdopt(self,grams,y):
-        # let's try writing this in pseudocode first, then rewriting. my WM is shot
-        gram_array = self._list2array(grams)
-        gram_X = self._reorgGrams(gram_array)
-        gram_y = self._reorgy(y) # do simple comparisons of y, eval if they are the same
-
-        flatgrams = np.zeros(shape=(len(np.triu_indices_from(grams[:,:,0],1)[0]),grams.shape[2]))
-        for icol in np.arange(0,flatgrams.shape[1]):
-            flatgrams[:,icol]=self._mc_flatten_upper_triangle(grams[:,:,icol])
-        b = np.zeros(shape=(grams.shape[0],grams.shape[0]))
-        it = np.nditer(b,flags=['multi_index'],op_flags=['writeonly'])
-        while not it.finished: # loop over agreement matrix and check
-            it[0] = int(y[it.multi_index[0]]==y[it.multi_index[1]])
-            it.iternext()
-        flatb = self._mc_flatten_upper_triangle(b)
-        regr = linear_model.LinearRegression()
-        regr.fit(flatgrams,flatb)
-        return regr.coef_
-
+    def _bdopt(self,X,y):
+        """Perform nonnegative OLS to learn weights"""
+        return nnls(X,y)[0] # grab the coefficients
