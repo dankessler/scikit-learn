@@ -560,6 +560,18 @@ class mkl_gram(BaseEstimator,TransformerMixin):
         self.gammaweights_ = self._bdopt(Xgram_design,ygram_design)
         return self
 
+    def transform(self,X,y):
+        Xgram = self._calcGrams(X,self.kernels)
+        return self._combGrams(Xgram,self.gammaweights_)
+
+    def _combGrams(self,Xgram,weights):
+        """Calculate a linear combination of
+        the gram matrices provided in the list
+        Xgram, weighted by values in weights"""
+        Xgram_design = self._resGrams(Xgram) # vectorize
+        Xgram_design_comb = np.dot(Xgram_design,weights) # linear combo
+        return squareform(Xgram_design_comb) # back to square
+
     def _calcGrams(self,X,kernels):
         """Return a list of gram matrices by
         applying each of the kernels to all pairs
