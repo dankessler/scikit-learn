@@ -536,7 +536,7 @@ class mkl_gram(BaseEstimator,TransformerMixin):
     def __init__(self,kernels=''):
         self.kernels = kernels
 
-    def fit(self,X,y):
+    def fit(self,X,y=None):
         """Fit estimator to data.
 
         Learn a linear combination of the kernels
@@ -560,7 +560,7 @@ class mkl_gram(BaseEstimator,TransformerMixin):
         self.gammaweights_ = self._bdopt(Xgram_design,ygram_design)
         return self
 
-    def transform(self,X,y):
+    def transform(self,X,y=None):
         Xgram = self._calcGrams(X,self.kernels)
         return self._combGrams(Xgram,self.gammaweights_)
 
