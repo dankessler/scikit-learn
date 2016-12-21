@@ -555,9 +555,9 @@ class mkl_gram(BaseEstimator,TransformerMixin):
 
         Xgram = self._calcGrams(X,self.kernels)
         Xgram_design = self._resGrams(Xgram)
-        ygram = self._calcGrams(y,self._identitykernel)
+        ygram = self._calcGrams(y[np.newaxis].T,[self._identitykernel])
         ygram_design = self._resGrams(ygram)
-        self.gammaweights_ = self._bdopt(Xgram_design,ygram_design)
+        self.gammaweights_ = self._bdopt(Xgram_design,ygram_design.squeeze())
         return self
 
     def transform(self,X,y=None):
@@ -570,7 +570,7 @@ class mkl_gram(BaseEstimator,TransformerMixin):
         Xgram, weighted by values in weights"""
         Xgram_design = self._resGrams(Xgram) # vectorize
         Xgram_design_comb = np.dot(Xgram_design,weights) # linear combo
-        return squareform(Xgram_design_comb) # back to square
+        return squareform(Xgram_design_comb,checks=False) # back to square
 
     def _calcGrams(self,X,kernels):
         """Return a list of gram matrices by
@@ -585,7 +585,7 @@ class mkl_gram(BaseEstimator,TransformerMixin):
         to the form of a design matrix. Extract the
         upper triangular portion of each gram matrix,
         convert to a column vector, then bind the columns"""
-        return np.array([squareform(g) for g in grams]).T
+        return np.array([squareform(g,checks=False) for g in grams]).T
 
     def _identitykernel(self,x1,x2):
         """A convenience kernel that returns
